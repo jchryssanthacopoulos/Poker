@@ -107,6 +107,7 @@ class ThreadManager(threading.Thread):
 
         # gui_signals.signal_lcd_number_update.emit('zero_ev', round(d.maxCallEV, 2))
 
+        tstart = time.time()
         gui_signals.signal_pie_chart_update.emit(t.winnerCardTypeList)
         gui_signals.signal_curve_chart_update1.emit(h.histEquity, h.histMinCall, h.histMinBet, t.equity,
                                                     t.minCall, t.minBet,
@@ -117,6 +118,7 @@ class ThreadManager(threading.Thread):
                                                     t.smallBlind, t.bigBlind,
                                                     t.maxValue_call, t.maxValue_bet,
                                                     t.maxEquityCall, t.max_X, t.maxEquityBet)
+        print(f"Time updating charts: {time.time() - tstart} s")
 
     def run(self):
         log = logging.getLogger(__name__)
@@ -281,9 +283,7 @@ class ThreadManager(threading.Thread):
                     tstart = time.time()
                     preflop_state.update_values(table, d.decision, history, d)
                     log.info(f"Update preflop state took {time.time() - tstart} s")
-                tstart = time.time()
-                mongo.increment_plays(table_scraper_name)
-                log.info(f"Increment plays took {time.time() - tstart} s")
+                # mongo.increment_plays(table_scraper_name)
                 log.info("=========== round end ===========")
 
 
