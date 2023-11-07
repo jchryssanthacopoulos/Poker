@@ -27,6 +27,7 @@ class TableScraper:
         self.call_value = None
         self.raise_value = None
         self.call_button = None
+        self.fold_button = None
         self.raise_button = None
         self.tlc = None
 
@@ -218,6 +219,13 @@ class TableScraper:
                                                       'call_button', 'buttons_search_area')
         log.info(f"Call button found: {self.call_button}")
         return self.call_button
+    
+    def has_fold_button(self):
+        """Chek if fold button is visible"""
+        self.fold_button = is_template_in_search_area(self.table_dict, self.screenshot,
+                                                      'fold_button', 'buttons_search_area')
+        log.info(f"Fold button found: {self.call_button}")
+        return self.fold_button
 
     def has_raise_button(self):
         """Check if raise button is present"""

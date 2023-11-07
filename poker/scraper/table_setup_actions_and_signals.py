@@ -631,6 +631,7 @@ class TableSetupActionAndSignals(QObject):
         table_scraper.has_raise_button()
         table_scraper.has_bet_button()
         table_scraper.has_check_button()
+        table_scraper.has_fold_button()
         log.info("Test finished.")
 
 
