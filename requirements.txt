@@ -1,3 +1,9 @@
+tensorflow==2.3.2
+keras-rl2==1.0.5
+jupyter-server==2.5.0
+jsonschema==4.17.3
+PyJWT==1.7.0
+protobuf==3.20.3
 pandas
 pytest
 pylint
@@ -21,11 +27,8 @@ lmfit
 openpyxl
 numexpr
 fastapi
-tensorflow
 tqdm
 seaborn
-PyJWT==1.7.0
 flask_jwt_extended
 fastapi_auth
 uvicorn
-tesserocr

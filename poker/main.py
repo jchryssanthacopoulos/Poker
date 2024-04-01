@@ -129,7 +129,6 @@ class ThreadManager(threading.Thread):
         except:
             history.preflop_sheet = pd.read_excel(preflop_url_backup, sheet_name=None, engine='openpyxl')
 
-
         strategy = StrategyHandler()
         strategy.read_strategy()
 
