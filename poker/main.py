@@ -16,9 +16,10 @@ from poker.restapi_local import local_restapi
 if platform not in ["linux", "linux2"]:
     matplotlib.use('Qt5Agg')
 
-from poker.decisionmaker.current_hand_memory import (CurrentHandPreflopState,
-                                                     History)
+from poker.decisionmaker.current_hand_memory import CurrentHandPreflopState
+from poker.decisionmaker.current_hand_memory import History
 from poker.decisionmaker.decisionmaker import Decision
+from poker.decisionmaker.dqn.dqn_decisionmaker import DQNDecision
 from poker.decisionmaker.montecarlo_python import run_montecarlo_wrapper
 from poker.gui.action_and_signals import StrategyHandler, UIActionAndSignals
 from poker.gui.gui_launcher import UiPokerbot
@@ -132,6 +133,13 @@ class ThreadManager(threading.Thread):
         strategy = StrategyHandler()
         strategy.read_strategy()
 
+        # use a different decisionmaker depending on the strategy
+        # this should only be instantiated once because it may need to load models
+        if strategy.selected_strategy["Strategy"] == "DQN Agent":
+            decision_maker = DQNDecision(strategy)
+        else:
+            decision_maker = Decision(strategy)
+
         preflop_state = CurrentHandPreflopState()
         mongo = MongoManager()
         table_scraper_name = None
@@ -201,32 +209,33 @@ class ThreadManager(threading.Thread):
             if not self.gui_signals.pause_thread:
                 config = get_config()
 
+                # run Monte Carlo simulation
                 tstart = time.time()
                 m = run_montecarlo_wrapper(strategy, self.gui_signals, config, ui, table, self.game_logger,
                                            preflop_state, history)
                 self.gui_signals.signal_progressbar_increase.emit(20)
                 log.info(f"Monte Carlo runs took {time.time() - tstart} s")
 
+                # make a decision
                 tstart = time.time()
-                d = Decision(table, history, strategy, self.game_logger)
-                d.make_decision(table, history, strategy, self.game_logger)
+                decision_maker.make_decision(table, history, strategy, self.game_logger)
                 log.info(f"Decision took {time.time() - tstart} s")
 
                 self.gui_signals.signal_progressbar_increase.emit(10)
                 if self.gui_signals.exit_thread: sys.exit()
 
-                self.update_most_gui_items(preflop_state, strategy, m, table, d, history, self.gui_signals)
+                self.update_most_gui_items(preflop_state, strategy, m, table, decision_maker, history, self.gui_signals)
 
                 log.info(
                     "Equity: " + str(table.equity * 100) + "% -> " + str(int(table.assumedPlayers)) + " (" + str(
                         int(table.other_active_players)) + "-" + str(int(table.playersAhead)) + "+1) Plr")
-                log.info("Final Call Limit: " + str(d.finalCallLimit) + " --> " + str(table.minCall))
-                log.info("Final Bet Limit: " + str(d.finalBetLimit) + " --> " + str(table.minBet))
+                log.info("Final Call Limit: " + str(decision_maker.finalCallLimit) + " --> " + str(table.minCall))
+                log.info("Final Bet Limit: " + str(decision_maker.finalBetLimit) + " --> " + str(table.minBet))
                 log.info(
-                    "Pot size: " + str(table.totalPotValue) + " -> Zero EV Call: " + str(round(d.maxCallEV, 2)))
-                log.info("+++++++++++++++++++++++ Decision: " + str(d.decision) + "+++++++++++++++++++++++")
+                    "Pot size: " + str(table.totalPotValue) + " -> Zero EV Call: " + str(round(decision_maker.maxCallEV, 2)))
+                log.info("+++++++++++++++++++++++ Decision: " + str(decision_maker.decision) + "+++++++++++++++++++++++")
 
-                mouse_target = d.decision
+                mouse_target = decision_maker.decision
                 action_options = {}
 
                 if mouse_target == 'Call' and table.allInCallButton:
@@ -240,7 +249,6 @@ class ThreadManager(threading.Thread):
                     mouse.mouse_action(mouse_target, table.tlc, action_options)
                 else:
                     input("=== Press Enter to continue ===")
-                    
 
                 # for pokerstars, high fold straight after all in call (fold button matches the stay in game)
                 # if mouse_target == 'Call2' and table.allInCallButton:
@@ -259,7 +267,7 @@ class ThreadManager(threading.Thread):
                 self.gui_signals.signal_status.emit("Logging data")
 
                 t_log_db = threading.Thread(name='t_log_db', target=self.game_logger.write_log_file,
-                                            args=[strategy, history, table, d])
+                                            args=[strategy, history, table, decision_maker])
                 t_log_db.daemon = True
                 t_log_db.start()
                 log.info(f"Logging took {time.time() - tstart} s")
@@ -267,20 +275,20 @@ class ThreadManager(threading.Thread):
 
                 history.previousPot = table.totalPotValue
                 history.histGameStage = table.gameStage
-                history.histDecision = d.decision
+                history.histDecision = decision_maker.decision
                 history.histEquity = table.equity
                 history.histMinCall = table.minCall
                 history.histMinBet = table.minBet
                 history.hist_other_players = table.other_players
                 history.first_raiser = table.first_raiser
                 history.first_caller = table.first_caller
-                history.previous_decision = d.decision
+                history.previous_decision = decision_maker.decision
                 history.lastRoundGameID = history.GameID
                 history.previous_round_pot_value = table.round_pot_value
                 history.last_round_bluff = False if table.currentBluff == 0 else True
                 if table.gameStage == 'PreFlop':
                     tstart = time.time()
-                    preflop_state.update_values(table, d.decision, history, d)
+                    preflop_state.update_values(table, decision_maker.decision, history, decision_maker)
                     log.info(f"Update preflop state took {time.time() - tstart} s")
                 # mongo.increment_plays(table_scraper_name)
                 log.info("=========== round end ===========")

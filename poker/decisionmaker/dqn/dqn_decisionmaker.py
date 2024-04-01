@@ -12,17 +12,12 @@ from tensorflow.keras.models import model_from_json
 from tensorflow.keras.optimizers import Adam
 
 from poker.decisionmaker.base import DecisionBase
+from poker.decisionmaker.dqn.action import Action
+from poker.decisionmaker.dqn.observation import Observation
 from poker.decisionmaker.dqn.processor import LegalMovesProcessor
 
 
 log = logging.getLogger(__name__)
-
-
-# from poker.gui.action_and_signals import StrategyHandler
-# from poker.decisionmaker.dqn.dqn_decisionmaker import DQNDecision
-# strategy = StrategyHandler()
-# strategy.read_strategy()
-# d = DQNDecision(None, None, strategy, None)
 
 
 class DecisionTypes(Enum):
@@ -54,16 +49,34 @@ class TrumpPolicy(BoltzmannQPolicy):
         return action
 
 
+class PlayerShell:
+    """Player shell."""
+
+    def __init__(self, stack_size, name):
+        """Initiaization of an agent."""
+        self.stack = stack_size
+        self.seat = None
+        self.equity_alive = 0
+        self.actions = []
+        self.last_action_in_stage = ''
+        self.temp_stack = []
+        self.name = name
+        self.agent_obj = None
+
+
 class DQNDecision(DecisionBase):
 
-    def __init__(self, table, history, strategy, game_logger):
+    def __init__(self, strategy):
         """Initialize DQN agent."""
-        nb_actions = len(DecisionTypes)
+        self.nb_actions = len(DecisionTypes)
+        self.num_opponents = strategy.selected_strategy["numOpponents"]
+        self.small_blind = strategy.selected_strategy["smallBlind"]
+        self.big_blind = strategy.selected_strategy["bigBlind"]
+        self.pot_norm = 100 * self.big_blind
 
         model_name = strategy.selected_strategy["modelName"]
         nb_steps_warmup = strategy.selected_strategy["nbStepsWarmup"]
         nb_steps = strategy.selected_strategy["nbSteps"]
-        num_opponents = strategy.selected_strategy["numOpponents"]
 
         # load model from disk
         self.model = self.load(model_name)
@@ -75,16 +88,23 @@ class DQNDecision(DecisionBase):
 
         # maybe these should be configurable in the future
         policy = TrumpPolicy()
-        processor = LegalMovesProcessor(num_opponents, nb_actions)
+        processor = LegalMovesProcessor(self.num_opponents, self.nb_actions)
 
         # create DQN
         self.dqn = DQNAgent(
-            model=self.model, nb_actions=nb_actions, memory=memory, nb_steps_warmup=nb_steps_warmup,
+            model=self.model, nb_actions=self.nb_actions, memory=memory, nb_steps_warmup=nb_steps_warmup,
             target_model_update=1e-2, policy=policy, processor=processor, batch_size=500,
             train_interval=100, enable_double_dqn=False
         )
 
         self.dqn.compile(Adam(lr=1e-3), metrics=['mae'])
+
+        # set these other required variables
+        self.finalCallLimit = 99999999
+        self.finalBetLimit = 99999999
+        self.outs = 0
+        self.pot_multiple = 0
+        self.maxCallEV = 0
 
     def load(self, model_name: str):
         """Load a model."""
@@ -100,7 +120,7 @@ class DQNDecision(DecisionBase):
 
     def make_decision(self, table, history, strategy, game_logger):
         # get observation
-        observation = [table.equity]
+        observation = self._get_observation(table)
 
         # process the observation (e.g., to set legal moves)
         observation = self.dqn.processor.process_observation(observation)
@@ -125,3 +145,73 @@ class DQNDecision(DecisionBase):
             decision = DecisionTypes.bet_max
 
         self.decision = decision.value
+
+    def _get_observation(self, table):
+        # make sure current funds are the latest for all players
+        table.get_players_funds()
+
+        main_player = PlayerShell(name='keras-rl', stack_size=table.player_funds[0])
+        main_player.seat = 0
+        main_player.actions = []
+
+        other_players = []
+        for i in range(self.num_opponents):
+            bot = PlayerShell(name=f'bot_{i}', stack_size=table.player_funds[i + 1])
+            bot.actions = []
+            other_players.append(bot)
+
+        if table.gameStage == 'PreFlop':
+            game_stage = 0
+        elif table.gameStage == 'Flop':
+            game_stage = 1
+        elif table.gameStage == 'Turn':
+            game_stage = 2
+        else:
+            game_stage = 3
+
+        legal_moves = self._get_legal_moves(table)
+
+        observation = Observation(self.num_opponents, self.nb_actions)
+
+        observation.community_data.set(
+            other_players,
+            table.total_pot,
+            table.current_round_pot,
+            game_stage,
+            self.small_blind,
+            self.big_blind,
+            self.pot_norm
+        )
+
+        observation.player_data.set(
+            main_player,
+            table.dealer_position,
+            legal_moves,
+            float(table.currentCallValue),
+            table.equity,
+            self.small_blind,
+            self.big_blind,
+            self.pot_norm
+        )
+
+        observation = observation.to_array()
+
+        return observation
+
+    def _get_legal_moves(self, table):
+        """Determine what moves are allowed in the current state based on OCR."""
+        legal_moves = []
+
+        if table.checkButton:
+            legal_moves.append(Action.CHECK)
+        else:
+            legal_moves.append(Action.CALL)
+            legal_moves.append(Action.FOLD)
+
+        if table.bet_button_found:
+            legal_moves.append(Action.RAISE_POT)
+
+        if table.allInCallButton:
+            legal_moves.append(Action.ALL_IN)
+
+        return legal_moves
