@@ -10,5 +10,9 @@
     "smallBlind": 50,
     "bigBlind": 100,
 
-    "initialFunds": 23.83
+    "initialFunds": 23.83,
+    "considerLastGames": 100.0,
+    "collusion": 0,
+    "strategyIterationGames": 10000.0,
+    "assumedPlayers": 2
 }

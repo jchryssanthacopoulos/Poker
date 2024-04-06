@@ -119,6 +119,23 @@ class DQNDecision(DecisionBase):
         return model
 
     def make_decision(self, table, history, strategy, game_logger):
+        # select equity
+        if table.gameStage != 'PreFlop' and strategy.selected_strategy['use_relative_equity']:
+            table.equity = table.relative_equity
+        else:
+            table.equity = table.abs_equity
+
+        # these need to be set
+        table.minCall = 9999
+        table.minBet = 9999
+        table.totalPotValue = 9999
+        table.minEquityCall = 9999
+        table.minEquityBet = 9999
+        table.power1 = 0.2
+        table.power2 = 0.2
+        table.bigBlind = float(strategy.selected_strategy['bigBlind'])
+        table.smallBlind = float(strategy.selected_strategy['smallBlind'])
+
         # get observation
         observation = self._get_observation(table)
 
@@ -127,6 +144,7 @@ class DQNDecision(DecisionBase):
 
         # get action using a forward pass
         action = self.dqn.forward(observation)
+        log.info(f"Ran inference with observation = {observation}")
 
         # process the action (e.g., to set to legal move)
         action = self.dqn.processor.process_action(action)
@@ -187,7 +205,7 @@ class DQNDecision(DecisionBase):
             main_player,
             table.dealer_position,
             legal_moves,
-            float(table.currentCallValue),
+            float(table.currentCallValue) / self.pot_norm,
             table.equity,
             self.small_blind,
             self.big_blind,

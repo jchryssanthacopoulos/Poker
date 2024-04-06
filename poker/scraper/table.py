@@ -106,9 +106,10 @@ class Table(TableScraper):
         second_raiser = np.nan
         first_caller = np.nan
 
-        for n in range(5):  # n is absolute position of other player, 0 is player after bot
-            i = (
-                        self.dealer_position + n + 3 - 2) % 5  # less myself as 0 is now first other player to my left and no longer myself
+        num_other_players = len(self.other_players)
+
+        for n in range(num_other_players):  # n is absolute position of other player, 0 is player after bot
+            i = (self.dealer_position + n + 3 - 2) % num_other_players  # less myself as 0 is now first other player to my left and no longer myself
             self.logger.debug("Go through pots to find raiser abs: {0} {1}".format(i, self.other_players[i]['pot']))
             if self.other_players[i]['pot'] != '':  # check if not empty (otherwise can't convert string)
                 if self.other_players[i]['pot'] > reference_pot:
@@ -129,7 +130,7 @@ class Table(TableScraper):
         self.logger.debug("First possible potential caller is: " + str(first_possible_caller))
 
         # get first caller after raise in preflop
-        for n in range(first_possible_caller, 5):  # n is absolute position of other player, 0 is player after bot
+        for n in range(first_possible_caller, num_other_players):  # n is absolute position of other player, 0 is player after bot
             self.logger.debug(
                 "Go through pots to find caller abs: " + str(n) + ": " + str(self.other_players[n]['pot']))
             if self.other_players[n]['pot'] != '':  # check if not empty (otherwise can't convert string)

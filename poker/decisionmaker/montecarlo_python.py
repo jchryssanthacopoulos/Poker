@@ -343,8 +343,11 @@ def run_montecarlo_wrapper(p, ui_action_and_signals, config, ui, t, L, preflop_s
 
         t.assumedPlayers = t.other_active_players + 1
 
-    max_assumed_players = t.total_players-2
-    t.assumedPlayers = min(max(t.assumedPlayers, 2), max_assumed_players)
+    if "assumedPlayers" in p.selected_strategy:
+        t.assumedPlayers = int(p.selected_strategy["assumedPlayers"])
+    else:
+        max_assumed_players = t.total_players-2
+        t.assumedPlayers = min(max(t.assumedPlayers, 2), max_assumed_players)
 
     t.PlayerCardList = []
     t.PlayerCardList.append(t.mycards)

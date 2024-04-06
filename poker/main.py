@@ -108,18 +108,18 @@ class ThreadManager(threading.Thread):
 
         # gui_signals.signal_lcd_number_update.emit('zero_ev', round(d.maxCallEV, 2))
 
-        tstart = time.time()
-        gui_signals.signal_pie_chart_update.emit(t.winnerCardTypeList)
-        gui_signals.signal_curve_chart_update1.emit(h.histEquity, h.histMinCall, h.histMinBet, t.equity,
-                                                    t.minCall, t.minBet,
-                                                    'bo',
-                                                    'ro')
+        # tstart = time.time()
+        # gui_signals.signal_pie_chart_update.emit(t.winnerCardTypeList)
+        # gui_signals.signal_curve_chart_update1.emit(h.histEquity, h.histMinCall, h.histMinBet, t.equity,
+        #                                             t.minCall, t.minBet,
+        #                                             'bo',
+        #                                             'ro')
 
-        gui_signals.signal_curve_chart_update2.emit(t.power1, t.power2, t.minEquityCall, t.minEquityBet,
-                                                    t.smallBlind, t.bigBlind,
-                                                    t.maxValue_call, t.maxValue_bet,
-                                                    t.maxEquityCall, t.max_X, t.maxEquityBet)
-        print(f"Time updating charts: {time.time() - tstart} s")
+        # gui_signals.signal_curve_chart_update2.emit(t.power1, t.power2, t.minEquityCall, t.minEquityBet,
+        #                                             t.smallBlind, t.bigBlind,
+        #                                             t.maxValue_call, t.maxValue_bet,
+        #                                             t.maxEquityCall, t.max_X, t.maxEquityBet)
+        # print(f"Time updating charts: {time.time() - tstart} s")
 
     def run(self):
         log = logging.getLogger(__name__)
@@ -229,8 +229,8 @@ class ThreadManager(threading.Thread):
                 log.info(
                     "Equity: " + str(table.equity * 100) + "% -> " + str(int(table.assumedPlayers)) + " (" + str(
                         int(table.other_active_players)) + "-" + str(int(table.playersAhead)) + "+1) Plr")
-                log.info("Final Call Limit: " + str(decision_maker.finalCallLimit) + " --> " + str(table.minCall))
-                log.info("Final Bet Limit: " + str(decision_maker.finalBetLimit) + " --> " + str(table.minBet))
+                # log.info("Final Call Limit: " + str(decision_maker.finalCallLimit) + " --> " + str(table.minCall))
+                # log.info("Final Bet Limit: " + str(decision_maker.finalBetLimit) + " --> " + str(table.minBet))
                 log.info(
                     "Pot size: " + str(table.totalPotValue) + " -> Zero EV Call: " + str(round(decision_maker.maxCallEV, 2)))
                 log.info("+++++++++++++++++++++++ Decision: " + str(decision_maker.decision) + "+++++++++++++++++++++++")
@@ -285,7 +285,8 @@ class ThreadManager(threading.Thread):
                 history.previous_decision = decision_maker.decision
                 history.lastRoundGameID = history.GameID
                 history.previous_round_pot_value = table.round_pot_value
-                history.last_round_bluff = False if table.currentBluff == 0 else True
+                history.last_round_bluff = False
+                # history.last_round_bluff = False if table.currentBluff == 0 else True
                 if table.gameStage == 'PreFlop':
                     tstart = time.time()
                     preflop_state.update_values(table, decision_maker.decision, history, decision_maker)
